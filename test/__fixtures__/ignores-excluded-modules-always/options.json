@@ -1,0 +1,12 @@
+{
+    "fixtureOutputExt": ".mjs",
+    "exclude": [ "apollo-server" ],
+    "test": [
+        "apollo-server",
+        "cjs-component-library",
+        "cjs2-component2-library2",
+        "cjs3-component3-library3",
+        "cjs4-component4-library4",
+        "some-package/dist/utils.js"
+    ]
+}

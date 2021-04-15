@@ -1,0 +1,5 @@
+{
+    "fixtureOutputExt": ".mjs",
+    "transformBuiltins": false,
+    "test": [ "url" ]
+}

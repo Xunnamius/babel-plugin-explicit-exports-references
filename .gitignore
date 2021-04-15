@@ -1,0 +1,13 @@
+/.vscode
+/build
+/.env
+/external-scripts/bin
+/next-env.d.ts
+/node_modules
+/dist
+/coverage
+/npm.pipe
+/tmp-docs
+/tmp-docs-diff
+/docs-diff
+/bundle-stats.json
