@@ -111,3 +111,4 @@ information.
   https://github.com/Xunnamius/babel-plugin-explicit-exports-references/compare
 [contributing]: CONTRIBUTING.md
 [support]: .github/SUPPORT.md
+[docs]: docs
