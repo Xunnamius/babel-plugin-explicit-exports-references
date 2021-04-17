@@ -18,7 +18,9 @@
 
 # babel-plugin-explicit-exports-references
 
-(description incoming)
+Transforms all internal references to a module's exports such that each reference starts with `module.exports` instead of directly referencing an internal name. This enables easy mocking of specific (exported) functions in Jest with Babel/TypeScript, even when the mocked functions call each other in the same module.
+
+(more description incoming)
 
 ## Installation and Usage
 
