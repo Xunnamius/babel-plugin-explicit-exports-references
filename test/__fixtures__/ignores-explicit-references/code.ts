@@ -1,8 +1,6 @@
 function internalfn1() {
   module.exports.fn1();
-  void Promise.all(
-    [1, 2, 3].map((_) => [module.exports.fn2]).map((a) => a[0]())
-  );
+  void Promise.all([1].map((_) => [module.exports.fn2]).map((a) => a[0]()));
 }
 
 export function fn1() {
@@ -16,7 +14,7 @@ export async function fn2() {
 
 export async function fn3() {
   const f = module.exports.fn1;
-  await module.exports.fn2(); // ! XXX
+  await fn2(); // ! XXX
   f();
   internalfn1();
 }

@@ -67,3 +67,4 @@ class Class3 {
 }
 
 new Class3();
+new Class2();
