@@ -5,6 +5,7 @@ import { join as makePath } from 'path';
 const babelOptions = {
   parserOpts: { strictMode: true },
   plugins: [
+    '@babel/plugin-syntax-module-string-names',
     '@babel/plugin-proposal-export-default-from',
     '@babel/plugin-proposal-function-bind',
     '@babel/plugin-transform-typescript'

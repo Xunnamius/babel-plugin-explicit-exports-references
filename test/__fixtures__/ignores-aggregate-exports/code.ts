@@ -9,3 +9,6 @@ export { name2, name3 } from 'pkg3';
 export { import1 as name4, import2 as name5 } from 'pkg4';
 // @ts-expect-error non-existent package
 export { default, name6 } from 'pkg5';
+// @ts-expect-error unsupported but potentially futuristic syntax
+export { name7 as 'name-7' } from 'pkg5';
+export {} from 'pkg6';

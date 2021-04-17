@@ -7,54 +7,68 @@ import * as util from '@babel/types';
 const debug = debugFactory(`${pkgName}:index`);
 let globalScope: NodePath['scope'];
 
-const updateExportRefs = (
-  idPath: NodePath<util.Identifier>,
+function updateExportRefs(
+  path: NodePath<util.Identifier>,
   mode: 'named' | 'default'
-) => {
-  const exportedName = idPath?.node?.name;
-  if (!exportedName)
-    throw new Error(`could not retrieve ${mode} export's name from identifier`);
+): void;
+function updateExportRefs(
+  path: { from: NodePath<util.Identifier>; to: string },
+  mode: 'named' | 'default'
+): void;
+function updateExportRefs(
+  path: NodePath<util.Identifier> | { from: NodePath<util.Identifier>; to: string },
+  mode: 'named' | 'default'
+): void {
+  debug(`mode: ${mode}`);
 
-  globalScope = globalScope || idPath.findParent((node) => node.isProgram())?.scope;
-  if (!globalScope) throw new Error('could not find program global scope');
+  // @ts-expect-error: need to discriminate between input types
+  const idPath = (path.isIdentifier?.() ? path : path.from) as NodePath<util.Identifier>;
+  const localName = idPath.node.name;
+  // @ts-expect-error: need to discriminate between input types
+  const exportedName = (path.to as string) || localName;
+  const refPaths = globalScope.getBinding(localName)?.referencePaths;
 
-  const refPaths = globalScope.getBinding(exportedName)?.referencePaths;
   debug(
-    `updating ${refPaths?.length || 0} references to ${mode} export "${exportedName}"`
+    `updating ${refPaths?.length || 0} references to ${mode} export "${localName}"` +
+      (exportedName != localName ? ` (exported as "${exportedName}")` : '')
   );
 
   refPaths?.forEach((refPath) => {
     if (refPath.isIdentifier()) {
-      // TODO:
-      refPath.node.name = `CHANGED_${
-        mode == 'default' ? 'TO_DEFAULT' : refPath.node.name
-      }`;
-    } else debug('(non-identifier reference path skipped)');
-  });
-};
+      if (
+        !!refPath.findParent(
+          (parent) =>
+            parent.isExportSpecifier() ||
+            parent.isExportNamespaceSpecifier() ||
+            parent.isExportDefaultSpecifier()
+        )
+      ) {
+        debug('(an identifier within an export specifier was skipped)');
+        return;
+      }
 
-/**
- * 1. Get the name from the identifier of the default export if it is a function
- *    or class declaration
- * 2. Gather names from the identifiers of non-default exports:
- *      - If there is a non-variable declaration, get the name from the function
- *        or class
- *      - If there is a variable declaration, gather n
- */
+      // TODO:
+      refPath.node.name = `CHANGED_${mode == 'default' ? 'TO_DEFAULT' : exportedName}`;
+    } else debug('(a non-identifier reference path was skipped)');
+  });
+}
+
 export default function (): PluginObj<PluginPass> {
   return {
     name: 'explicit-exports-references',
     visitor: {
+      Program(programPath) {
+        globalScope = programPath.scope;
+      },
       ExportDefaultDeclaration(exportPath) {
         const declaration = exportPath.get('declaration');
-        const typeStr = `declaration type "${declaration.type}"`;
-        debug(`saw ${typeStr}`);
+        debug(`encountered default export`);
 
         if (declaration.isFunctionDeclaration() || declaration.isClassDeclaration()) {
           const id = declaration.get('id') as NodePath<util.Identifier>;
           if (id?.node?.name) updateExportRefs(id, 'default');
           else debug('default declaration is anonymous, ignoring');
-        }
+        } else debug('(ignored)');
       },
       ExportNamedDeclaration(exportPath) {
         const declaration = exportPath.get('declaration');
@@ -63,14 +77,9 @@ export default function (): PluginObj<PluginPass> {
         if (!declaration.node && !specifiers.length) {
           debug('ignored empty named export declaration');
           return;
-        } else if (declaration.node && specifiers.length) {
-          throw new Error(
-            'named exports cannot have both a) a declaration and b) specifiers'
-          );
-        } else debug('(ignored)');
+        }
 
-        const typeStr = `declaration type "${declaration.type}"`;
-        debug(`saw ${typeStr}`);
+        debug(`encountered named export`);
 
         if (declaration.node) {
           if (declaration.isFunctionDeclaration() || declaration.isClassDeclaration()) {
@@ -79,12 +88,38 @@ export default function (): PluginObj<PluginPass> {
             declaration.get('declarations').forEach((declarator) => {
               const id = declarator.get('id');
               if (id.isIdentifier()) updateExportRefs(id, 'named');
-              else debug('(non-identifier id skipped)');
+              else debug('(a non-identifier id was skipped)');
             });
           } else debug('(ignored)');
         }
 
-        if (specifiers.length) {
-        }
+        // ? Later exports take precedence over earlier ones
+        specifiers.forEach((specifier) => {
+          if (!specifier.isExportSpecifier()) {
+            debug(`(ignored export specifier type "${specifier.type}")`);
+          } else {
+            const local = specifier.get('local');
+            const exported = specifier.get('exported');
+
+            debug(`encountered specifier "${local} as ${exported}"`);
+
+            if (exported.isIdentifier()) {
+              const exportedName = exported.node.name;
+              updateExportRefs(
+                {
+                  from: local,
+                  to: exportedName
+                },
+                exportedName == 'default' ? 'default' : 'named'
+              );
+            } else {
+              debug(
+                '(ignored export specifier because module string names are not supported)'
+              );
+            }
+          }
+        });
       }
+    }
+  };
 }
