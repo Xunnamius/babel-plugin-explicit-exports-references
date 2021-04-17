@@ -1,6 +1,6 @@
 function internalfn1() {
   fn1();
-  void Promise.all([1, 2, 3].map((_) => [fn2]).map((a) => a[0]()));
+  void Promise.all([1].map((_) => [fn2]).map((a) => a[0]()));
 }
 
 export function fn1() {
@@ -28,11 +28,11 @@ var1 = 'goodbye, world!';
 export let var2 = 2;
 var2 = 3;
 export let var3: boolean, var4: boolean;
-export let var5: boolean, var6: number;
+export let var5: boolean | string, var6: number;
 var5 = true;
-var5 = false;
+var5 = var1;
 var6 = 6;
-var6 += 1;
+var6 = var2;
 
 export const var7 = 7,
   var8 = 8;

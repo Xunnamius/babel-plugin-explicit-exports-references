@@ -1,8 +1,8 @@
 import { name as pkgName } from '../package.json';
 import { NodePath, PluginObj, PluginPass } from '@babel/core';
 import debugFactory from 'debug';
-
 import * as util from '@babel/types';
+import template from '@babel/template';
 
 const debug = debugFactory(`${pkgName}:index`);
 let globalScope: NodePath['scope'];
@@ -26,7 +26,11 @@ function updateExportRefs(
   const localName = idPath.node.name;
   // @ts-expect-error: need to discriminate between input types
   const exportedName = (path.to as string) || localName;
-  const refPaths = globalScope.getBinding(localName)?.referencePaths;
+  const globalBinding = globalScope.getBinding(localName);
+  const refPaths = [
+    ...(globalBinding?.referencePaths || []),
+    ...(globalBinding?.constantViolations || [])
+  ];
 
   debug(
     `updating ${refPaths?.length || 0} references to ${mode} export "${localName}"` +
@@ -34,22 +38,33 @@ function updateExportRefs(
   );
 
   refPaths?.forEach((refPath) => {
-    if (refPath.isIdentifier()) {
-      if (
-        !!refPath.findParent(
-          (parent) =>
-            parent.isExportSpecifier() ||
-            parent.isExportNamespaceSpecifier() ||
-            parent.isExportDefaultSpecifier()
-        )
-      ) {
-        debug('(an identifier within an export specifier was skipped)');
-        return;
-      }
+    if (
+      !!refPath.find(
+        (path) =>
+          path.isExportSpecifier() ||
+          path.isExportNamespaceSpecifier() ||
+          path.isExportDefaultSpecifier()
+      )
+    ) {
+      debug('(an export specifier reference was skipped)');
+      return;
+    }
 
-      // TODO:
-      refPath.node.name = `CHANGED_${mode == 'default' ? 'TO_DEFAULT' : exportedName}`;
-    } else debug('(a non-identifier reference path was skipped)');
+    if (!!refPath.find((path) => path.isTSType())) {
+      debug('(an TypeScript type reference was skipped)');
+      return;
+    }
+
+    const wasReplaced = !!(refPath.isIdentifier()
+      ? refPath
+      : refPath.isAssignmentExpression()
+      ? refPath.get('left')
+      : undefined
+    )?.replaceWith(
+      template.expression.ast`module.exports.${mode == 'default' ? mode : exportedName}`
+    );
+
+    if (!wasReplaced) debug(`(unsupported reference type "${refPath.type}" was skipped)`);
   });
 }
 
@@ -88,7 +103,17 @@ export default function (): PluginObj<PluginPass> {
             declaration.get('declarations').forEach((declarator) => {
               const id = declarator.get('id');
               if (id.isIdentifier()) updateExportRefs(id, 'named');
-              else debug('(a non-identifier id was skipped)');
+              else if (id.isObjectPattern()) {
+                id.get('properties').forEach((propPath) => {
+                  if (propPath.isObjectProperty()) {
+                    const propId = propPath.get('value');
+                    if (propId.isIdentifier()) updateExportRefs(propId, 'named');
+                  } else if (propPath.isRestElement()) {
+                    const arg = propPath.get('argument');
+                    if (arg.isIdentifier()) updateExportRefs(arg, 'named');
+                  }
+                });
+              }
             });
           } else debug('(ignored)');
         }

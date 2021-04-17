@@ -5,9 +5,12 @@ const o = {
 };
 
 const var2 = 2;
-export const { var1, var3: var4 } = o;
+export const { var1, var3: var4, ...daRest } = o;
 
 export function fn1() {
   void var2;
-  return o.var1 || o.var2 || var1 || var4;
+  void o.var1 || o.var2;
+  return var1 || var4 || fn1;
 }
+
+void daRest;

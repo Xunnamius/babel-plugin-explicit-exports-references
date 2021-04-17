@@ -1,6 +1,6 @@
 function internalfn1() {
   module.exports.fn1();
-  void Promise.all([1, 2, 3].map((_) => [module.exports.fn2]).map((a) => a[0]()));
+  void Promise.all([1].map((_) => [module.exports.fn2]).map((a) => a[0]()));
 }
 
 export function fn1() {
@@ -26,13 +26,13 @@ module.exports.var2 = 3;
 export let var3, var4;
 export let var5, var6;
 module.exports.var5 = true;
-module.exports.var5 = false;
+module.exports.var5 = module.exports.var1;
 module.exports.var6 = 6;
-module.exports.var6 += 1;
+module.exports.var6 = module.exports.var2;
 export const var7 = 7,
   var8 = 8;
 export function fn4() {
-  return module.exports.var7 + var8;
+  return module.exports.var7 + module.exports.var8;
 }
 let var9 = 9;
 var9 += 1;
