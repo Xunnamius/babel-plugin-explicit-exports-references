@@ -1,0 +1,6 @@
+/build
+/external-scripts/bin
+/node_modules
+/dist
+/coverage
+/package-lock.json
