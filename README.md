@@ -40,7 +40,7 @@ module.exports = {
 
 **Note**: it is recommended that this plugin only be enabled when `NODE_ENV` is
 `test`. Using this plugin elsewhere, such as in production, can lead to
-increased build size.
+increased build size. For example:
 
 ```javascript
 module.exports = {
