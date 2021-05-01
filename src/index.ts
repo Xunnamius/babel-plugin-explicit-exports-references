@@ -44,7 +44,8 @@ function updateExportRefs(
   } else dbg('no references to update');
 
   refPaths?.forEach((refPath, ndx) => {
-    const dbg2 = dbg.extend(`ref-${exportedName}-${(ndx + 1).toString()}`);
+    const prefix = `ref-${exportedName}-${(ndx + 1).toString()}`;
+
     if (
       !!refPath.find(
         (path) =>
@@ -53,22 +54,22 @@ function updateExportRefs(
           path.isExportDefaultSpecifier()
       )
     ) {
-      dbg2('reference skipped: part of an export specifier');
+      dbg(`[${prefix}] reference skipped: part of an export specifier`);
       return;
     }
 
     if (!!refPath.find((path) => path.isTSType())) {
-      dbg2('reference skipped: TypeScript type reference');
+      dbg(`[${prefix}] reference skipped: TypeScript type reference`);
       return;
     }
 
     if (refPath.isIdentifier()) {
-      dbg2('transforming type "identifier"');
+      dbg(`[${prefix}] transforming type "identifier"`);
       refPath.replaceWith(
         template.expression.ast`module.exports.${mode == 'default' ? mode : exportedName}`
       );
     } else if (transformAssignExpr && refPath.isAssignmentExpression()) {
-      dbg2('transforming type "assignment expression"');
+      dbg(`[${prefix}] transforming type "assignment expression"`);
       refPath
         .get('left')
         // TODO: needs to be more resilient, but we'll repeat this here for now
@@ -77,7 +78,7 @@ function updateExportRefs(
             mode == 'default' ? mode : exportedName
           }`
         );
-    } else dbg2(`reference skipped: unsupported type "${refPath.type}"`);
+    } else dbg(`[${prefix}] reference skipped: unsupported type "${refPath.type}"`);
   });
 }
 
