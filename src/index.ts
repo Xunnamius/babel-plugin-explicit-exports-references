@@ -9,18 +9,19 @@ let globalScope: NodePath['scope'];
 
 function updateExportRefs(
   path: NodePath<util.Identifier>,
-  mode: 'named' | 'default'
+  mode: 'named' | 'default',
+  transformAssignExpr: boolean
 ): void;
 function updateExportRefs(
   path: { from: NodePath<util.Identifier>; to: string },
-  mode: 'named' | 'default'
+  mode: 'named' | 'default',
+  transformAssignExpr: boolean
 ): void;
 function updateExportRefs(
   path: NodePath<util.Identifier> | { from: NodePath<util.Identifier>; to: string },
-  mode: 'named' | 'default'
+  mode: 'named' | 'default',
+  transformAssignExpr: boolean
 ): void {
-  debug(`mode: ${mode}`);
-
   // @ts-expect-error: need to discriminate between input types
   const idPath = (path.isIdentifier?.() ? path : path.from) as NodePath<util.Identifier>;
   const localName = idPath.node.name;
@@ -32,12 +33,18 @@ function updateExportRefs(
     ...(globalBinding?.constantViolations || [])
   ];
 
-  debug(
-    `updating ${refPaths?.length || 0} references to ${mode} export "${localName}"` +
-      (exportedName != localName ? ` (exported as "${exportedName}")` : '')
-  );
+  const numRefs = refPaths?.length || 0;
+  const dbg = debug.extend(`mode-${mode}:updating`);
 
-  refPaths?.forEach((refPath) => {
+  if (numRefs) {
+    dbg(
+      `potentially updating ${numRefs} references to ${mode} export "${localName}"` +
+        (exportedName != localName ? ` (exported as "${exportedName}")` : '')
+    );
+  } else dbg('no references to update');
+
+  refPaths?.forEach((refPath, ndx) => {
+    const dbg2 = dbg.extend(`ref-${exportedName}-${(ndx + 1).toString()}`);
     if (
       !!refPath.find(
         (path) =>
@@ -46,87 +53,113 @@ function updateExportRefs(
           path.isExportDefaultSpecifier()
       )
     ) {
-      debug('(an export specifier reference was skipped)');
+      dbg2('reference skipped: part of an export specifier');
       return;
     }
 
     if (!!refPath.find((path) => path.isTSType())) {
-      debug('(an TypeScript type reference was skipped)');
+      dbg2('reference skipped: TypeScript type reference');
       return;
     }
 
-    const wasReplaced = !!(refPath.isIdentifier()
-      ? refPath
-      : refPath.isAssignmentExpression()
-      ? refPath.get('left')
-      : undefined
-    )?.replaceWith(
-      template.expression.ast`module.exports.${mode == 'default' ? mode : exportedName}`
-    );
-
-    if (!wasReplaced) debug(`(unsupported reference type "${refPath.type}" was skipped)`);
+    if (refPath.isIdentifier()) {
+      dbg2('transforming type "identifier"');
+      refPath.replaceWith(
+        template.expression.ast`module.exports.${mode == 'default' ? mode : exportedName}`
+      );
+    } else if (transformAssignExpr && refPath.isAssignmentExpression()) {
+      dbg2('transforming type "assignment expression"');
+      refPath
+        .get('left')
+        // TODO: needs to be more resilient, but we'll repeat this here for now
+        .replaceWith(
+          template.expression.ast`module.exports.${
+            mode == 'default' ? mode : exportedName
+          }`
+        );
+    } else dbg2(`reference skipped: unsupported type "${refPath.type}"`);
   });
 }
 
-export default function (): PluginObj<PluginPass> {
+export default function (): PluginObj<
+  PluginPass & { opts: { transformAssignExpr: boolean } }
+> {
   return {
     name: 'explicit-exports-references',
     visitor: {
       Program(programPath) {
         globalScope = programPath.scope;
       },
-      ExportDefaultDeclaration(exportPath) {
+      ExportDefaultDeclaration(exportPath, state) {
         const declaration = exportPath.get('declaration');
-        debug(`encountered default export`);
+        const transformAssignExpr = state.opts.transformAssignExpr;
+        const dbg = debug.extend('mode-default');
+
+        debug(`encountered default export declaration`);
 
         if (declaration.isFunctionDeclaration() || declaration.isClassDeclaration()) {
           const id = declaration.get('id') as NodePath<util.Identifier>;
-          if (id?.node?.name) updateExportRefs(id, 'default');
-          else debug('default declaration is anonymous, ignoring');
-        } else debug('(ignored)');
+          if (id?.node?.name) updateExportRefs(id, 'default', transformAssignExpr);
+          else dbg('default declaration is anonymous, ignored');
+        } else dbg('default declaration not function or class, ignored');
       },
-      ExportNamedDeclaration(exportPath) {
+      ExportNamedDeclaration(exportPath, state) {
         const declaration = exportPath.get('declaration');
         const specifiers = exportPath.get('specifiers');
+        const transformAssignExpr = state.opts.transformAssignExpr;
+        const dbg = debug.extend('mode-named');
 
         if (!declaration.node && !specifiers.length) {
-          debug('ignored empty named export declaration');
+          dbg('ignored empty named export declaration');
           return;
         }
 
-        debug(`encountered named export`);
+        debug(`encountered named export node`);
+        dbg(`processing declaration`);
 
         if (declaration.node) {
           if (declaration.isFunctionDeclaration() || declaration.isClassDeclaration()) {
-            updateExportRefs(declaration.get('id') as NodePath<util.Identifier>, 'named');
+            updateExportRefs(
+              declaration.get('id') as NodePath<util.Identifier>,
+              'named',
+              transformAssignExpr
+            );
           } else if (declaration.isVariableDeclaration()) {
             declaration.get('declarations').forEach((declarator) => {
               const id = declarator.get('id');
-              if (id.isIdentifier()) updateExportRefs(id, 'named');
+              if (id.isIdentifier()) updateExportRefs(id, 'named', transformAssignExpr);
               else if (id.isObjectPattern()) {
                 id.get('properties').forEach((propPath) => {
                   if (propPath.isObjectProperty()) {
                     const propId = propPath.get('value');
-                    if (propId.isIdentifier()) updateExportRefs(propId, 'named');
+                    if (propId.isIdentifier())
+                      updateExportRefs(propId, 'named', transformAssignExpr);
                   } else if (propPath.isRestElement()) {
                     const arg = propPath.get('argument');
-                    if (arg.isIdentifier()) updateExportRefs(arg, 'named');
+                    if (arg.isIdentifier())
+                      updateExportRefs(arg, 'named', transformAssignExpr);
                   }
                 });
               }
             });
-          } else debug('(ignored)');
+          } else {
+            dbg(
+              'named declaration is not a function, class, or variable declaration; ignored'
+            );
+          }
         }
+
+        specifiers.length && dbg(`processing ${specifiers.length} specifiers`);
 
         // ? Later exports take precedence over earlier ones
         specifiers.forEach((specifier) => {
           if (!specifier.isExportSpecifier()) {
-            debug(`(ignored export specifier type "${specifier.type}")`);
+            dbg(`ignored export specifier type "${specifier.type}"`);
           } else {
             const local = specifier.get('local');
             const exported = specifier.get('exported');
 
-            debug(`encountered specifier "${local} as ${exported}"`);
+            dbg(`encountered specifier "${local} as ${exported}"`);
 
             if (exported.isIdentifier()) {
               const exportedName = exported.node.name;
@@ -135,11 +168,12 @@ export default function (): PluginObj<PluginPass> {
                   from: local,
                   to: exportedName
                 },
-                exportedName == 'default' ? 'default' : 'named'
+                exportedName == 'default' ? 'default' : 'named',
+                transformAssignExpr
               );
             } else {
-              debug(
-                '(ignored export specifier because module string names are not supported)'
+              dbg(
+                'ignored export specifier because module string names are not supported'
               );
             }
           }

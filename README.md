@@ -18,7 +18,11 @@
 
 # babel-plugin-explicit-exports-references
 
-Transforms all internal references to a module's exports such that each reference starts with `module.exports` instead of directly referencing an internal name. This enables easy mocking of specific (exported) functions in Jest with Babel/TypeScript, even when the mocked functions call each other in the same module.
+Transforms all internal references to a module's exports such that each
+reference starts with `module.exports` instead of directly referencing an
+internal name. This enables easy mocking of specific (exported) functions in
+Jest with Babel/TypeScript, even when the mocked functions call each other in
+the same module.
 
 (more description incoming)
 
@@ -104,9 +108,6 @@ information.
   https://webpack.js.org/guides/tree-shaking/#mark-the-file-as-side-effect-free
 [exports-main-key]:
   https://github.com/nodejs/node/blob/8d8e06a345043bec787e904edc9a2f5c5e9c275f/doc/api/packages.md#package-entry-points
-[tree-shaking]: https://webpack.js.org/guides/tree-shaking
-[local-pkg]:
-  https://github.com/nodejs/node/blob/8d8e06a345043bec787e904edc9a2f5c5e9c275f/doc/api/packages.md#type
 [choose-new-issue]:
   https://github.com/Xunnamius/babel-plugin-explicit-exports-references/issues/new/choose
 [pr-compare]:

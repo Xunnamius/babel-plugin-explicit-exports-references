@@ -1,0 +1,4 @@
+{
+  "fixtureOutputExt": ".mjs",
+  "transformAssignExpr": true
+}

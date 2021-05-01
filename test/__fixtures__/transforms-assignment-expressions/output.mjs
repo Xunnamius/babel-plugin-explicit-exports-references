@@ -19,16 +19,16 @@ export async function fn3() {
 internalfn1();
 void module.exports.fn3();
 export let var1;
-var1 = 'hello, world!';
-var1 = 'goodbye, world!';
+module.exports.var1 = 'hello, world!';
+module.exports.var1 = 'goodbye, world!';
 export let var2 = 2;
-var2 = 3;
+module.exports.var2 = 3;
 export let var3, var4;
 export let var5, var6;
-var5 = true;
-var5 = module.exports.var1;
-var6 = 6;
-var6 = module.exports.var2;
+module.exports.var5 = true;
+module.exports.var5 = module.exports.var1;
+module.exports.var6 = 6;
+module.exports.var6 = module.exports.var2;
 export const var7 = 7,
   var8 = 8;
 export function fn4() {
