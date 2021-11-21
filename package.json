@@ -24,7 +24,7 @@
     "type": "git",
     "url": "https://github.com/Xunnamius/babel-plugin-explicit-exports-references"
   },
-  "license": "Unlicense",
+  "license": "MIT",
   "author": "Xunnamius",
   "sideEffects": false,
   "type": "commonjs",
