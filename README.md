@@ -246,7 +246,7 @@ information.
 [badge-blm]: https://api.ergodark.com/badges/blm 'Join the movement!'
 [link-blm]: https://secure.actblue.com/donate/ms_blm_homepage_2019
 [badge-maintenance]:
-  https://img.shields.io/maintenance/active/2021
+  https://img.shields.io/maintenance/active/2022
   'Is this package maintained?'
 [link-repo]:
   https://github.com/xunnamius/babel-plugin-explicit-exports-references
