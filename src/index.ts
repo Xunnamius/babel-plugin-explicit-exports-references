@@ -7,17 +7,17 @@ import template from '@babel/template';
 const debug = debugFactory(`${pkgName}:index`);
 let globalScope: NodePath['scope'];
 
-function updateExportRefs(
+function updateExportReferences(
   path: NodePath<util.Identifier>,
   mode: 'named' | 'default',
   transformAssignExpr: boolean
 ): void;
-function updateExportRefs(
+function updateExportReferences(
   path: { from: NodePath<util.Identifier>; to: string },
   mode: 'named' | 'default',
   transformAssignExpr: boolean
 ): void;
-function updateExportRefs(
+function updateExportReferences(
   path: NodePath<util.Identifier> | { from: NodePath<util.Identifier>; to: string },
   mode: 'named' | 'default',
   transformAssignExpr: boolean
@@ -28,26 +28,27 @@ function updateExportRefs(
   // @ts-expect-error: need to discriminate between input types
   const exportedName = (path.to as string) || localName;
   const globalBinding = globalScope.getBinding(localName);
-  const refPaths = [
+  const referencePaths = [
     ...(globalBinding?.referencePaths || []),
     ...(globalBinding?.constantViolations || [])
   ];
 
-  const numRefs = refPaths?.length || 0;
+  const numberReferences = referencePaths?.length || 0;
   const dbg = debug.extend(`mode-${mode}:updating`);
 
-  if (numRefs) {
+  if (numberReferences) {
     dbg(
-      `potentially updating ${numRefs} references to ${mode} export "${localName}"` +
+      `potentially updating ${numberReferences} references to ${mode} export "${localName}"` +
         (exportedName != localName ? ` (exported as "${exportedName}")` : '')
     );
   } else dbg('no references to update');
 
-  refPaths?.forEach((refPath, ndx) => {
+  referencePaths?.forEach((referencePath, ndx) => {
     const prefix = `ref-${exportedName}-${(ndx + 1).toString()}`;
 
     if (
-      !!refPath.find(
+      // eslint-disable-next-line unicorn/prefer-array-some
+      !!referencePath.find(
         (path) =>
           path.isExportSpecifier() ||
           path.isExportNamespaceSpecifier() ||
@@ -58,19 +59,20 @@ function updateExportRefs(
       return;
     }
 
-    if (!!refPath.find((path) => path.isTSType())) {
+    // eslint-disable-next-line unicorn/prefer-array-some
+    if (!!referencePath.find((path) => path.isTSType())) {
       dbg(`[${prefix}] reference skipped: TypeScript type reference`);
       return;
     }
 
-    if (refPath.isIdentifier()) {
+    if (referencePath.isIdentifier()) {
       dbg(`[${prefix}] transforming type "identifier"`);
-      refPath.replaceWith(
+      referencePath.replaceWith(
         template.expression.ast`module.exports.${mode == 'default' ? mode : exportedName}`
       );
-    } else if (transformAssignExpr && refPath.isAssignmentExpression()) {
+    } else if (transformAssignExpr && referencePath.isAssignmentExpression()) {
       dbg(`[${prefix}] transforming type "assignment expression"`);
-      refPath
+      referencePath
         .get('left')
         // TODO: needs to be more resilient, but we'll repeat this here for now
         .replaceWith(
@@ -78,7 +80,7 @@ function updateExportRefs(
             mode == 'default' ? mode : exportedName
           }`
         );
-    } else dbg(`[${prefix}] reference skipped: unsupported type "${refPath.type}"`);
+    } else dbg(`[${prefix}] reference skipped: unsupported type "${referencePath.type}"`);
   });
 }
 
@@ -100,7 +102,7 @@ export default function (): PluginObj<
 
         if (declaration.isFunctionDeclaration() || declaration.isClassDeclaration()) {
           const id = declaration.get('id') as NodePath<util.Identifier>;
-          if (id?.node?.name) updateExportRefs(id, 'default', transformAssignExpr);
+          if (id?.node?.name) updateExportReferences(id, 'default', transformAssignExpr);
           else dbg('default declaration is anonymous, ignored');
         } else dbg('default declaration not function or class, ignored');
       },
@@ -120,7 +122,7 @@ export default function (): PluginObj<
 
         if (declaration.node) {
           if (declaration.isFunctionDeclaration() || declaration.isClassDeclaration()) {
-            updateExportRefs(
+            updateExportReferences(
               declaration.get('id') as NodePath<util.Identifier>,
               'named',
               transformAssignExpr
@@ -128,17 +130,18 @@ export default function (): PluginObj<
           } else if (declaration.isVariableDeclaration()) {
             declaration.get('declarations').forEach((declarator) => {
               const id = declarator.get('id');
-              if (id.isIdentifier()) updateExportRefs(id, 'named', transformAssignExpr);
+              if (id.isIdentifier())
+                updateExportReferences(id, 'named', transformAssignExpr);
               else if (id.isObjectPattern()) {
-                id.get('properties').forEach((propPath) => {
-                  if (propPath.isObjectProperty()) {
-                    const propId = propPath.get('value');
-                    if (propId.isIdentifier())
-                      updateExportRefs(propId, 'named', transformAssignExpr);
-                  } else if (propPath.isRestElement()) {
-                    const arg = propPath.get('argument');
-                    if (arg.isIdentifier())
-                      updateExportRefs(arg, 'named', transformAssignExpr);
+                id.get('properties').forEach((propertyPath) => {
+                  if (propertyPath.isObjectProperty()) {
+                    const propertyId = propertyPath.get('value');
+                    if (propertyId.isIdentifier())
+                      updateExportReferences(propertyId, 'named', transformAssignExpr);
+                  } else if (propertyPath.isRestElement()) {
+                    const argument = propertyPath.get('argument');
+                    if (argument.isIdentifier())
+                      updateExportReferences(argument, 'named', transformAssignExpr);
                   }
                 });
               }
@@ -164,7 +167,7 @@ export default function (): PluginObj<
 
             if (exported.isIdentifier()) {
               const exportedName = exported.node.name;
-              updateExportRefs(
+              updateExportReferences(
                 {
                   from: local,
                   to: exportedName
