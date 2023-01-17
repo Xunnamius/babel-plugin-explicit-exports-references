@@ -29,7 +29,7 @@
     "src/**/*.ts*",
     "test/**/*.ts*",
     "external-scripts/**/*.ts*",
-    "test/__fixtures__/**/*.mjs"
+    "test/fixtures/**/*.mjs"
   ],
   "exclude": ["node_modules"]
 }
